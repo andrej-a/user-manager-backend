@@ -1,4 +1,4 @@
-const state = (values: any, res: { json: (arg0: { status: number; values: any; }) => void; end: () => void; }) => {
+const responce = (values: any, res: { json: (arg0: { status: number; values: any; }) => void; end: () => void; }) => {
     const data = {
         'status': 200,
         'values': values
@@ -8,4 +8,4 @@ const state = (values: any, res: { json: (arg0: { status: number; values: any; }
     res.end();
 }
 
-export default state;
+export default responce;

@@ -5,7 +5,7 @@ import route from '../settings/routes';
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = process.env.PORT || 3500;
 
 app.use(bodyParser.urlencoded({extended: true}));

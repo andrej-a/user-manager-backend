@@ -1,6 +1,6 @@
-const responce = (values: any, res: { json: (arg0: { status: number; values: any; }) => void; end: () => void; }) => {
+const responce = (status: number, values: any, res: { json: (arg0: { status: number; values: any; }) => void; end: () => void; }) => {
     const data = {
-        'status': 200,
+        'status': status,
         'values': values
     };
 

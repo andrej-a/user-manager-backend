@@ -1,6 +1,7 @@
 export enum statusCodes {
     SUCCESS = 200,
     BAD_REQUEST = 400,
+    NO_CONTENT = 204,
 }
 
 export enum date {

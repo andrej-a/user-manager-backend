@@ -6,13 +6,13 @@ import connection from '../settings/db';
 import { IUser } from '../models/user';
 import { statusCodes, date } from '../models/constants';
 
-const { SUCCESS, BAD_REQUEST } = statusCodes;
+const { SUCCESS, BAD_REQUEST, NO_CONTENT } = statusCodes;
 const { DATE_FORMAT, NOT_LOGIN_INFORMATION } = date;
 
 export const getUsers = (req: any, res: { json: (arg0: { status: number; values: any }) => void; end: () => void }) => {
     connection.query('SELECT * FROM `users`', (error, rows) => {
         if (error) {
-            responce(BAD_REQUEST, {"message": `${error.sqlMessage}`}, res);
+            responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
             return;
         }
         responce(SUCCESS, rows, res);
@@ -40,17 +40,56 @@ export const addUser = (
     });
 };
 
-export const deleteUser = (req: {body: string[]}, res: any) => {
+export const deleteUser = (req: { body: string[] }, res: any) => {
     const id = req.body;
+    const deletedValues: string[] = [];
     id.forEach((item) => {
-        const sql = `DELETE FROM users WHERE Id='${item}';`
+        const sql = `DELETE FROM users WHERE Id='${item}';`;
         connection.query(sql, (error) => {
             if (error) {
                 responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
                 return;
             }
-        })
-    })
-    responce(SUCCESS, { "message": `Values were deleted!` }, res);
+            deletedValues.push(item);
+        });
+    });
+    console.log(deletedValues);
 
-}
+    responce(NO_CONTENT, { message: `Values were deleted!` }, res);
+};
+
+export const loginUser = (req: { body: { Email: string; Password: string } }, res: any) => {
+    const { Email, Password } = req.body;
+    const sql = `
+        UPDATE users
+        SET LastLoginDate = '${format(new Date(), DATE_FORMAT)}'
+        WHERE Email = '${Email}';
+    `;
+    connection.query(sql, (error) => {
+        if (error) {
+            responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
+            return;
+        }
+
+        responce(SUCCESS, { message: `${Email} was updated` }, res);
+    });
+};
+
+export const changeUserStatus = (req: { body: { id: string[]; status: string } }, res: any) => {
+    const { id, status } = req.body;
+    id.forEach((item) => {
+        const sql = `
+        UPDATE users
+        SET UserStatus = '${status}'
+        WHERE Id = '${item}';
+        `;
+        connection.query(sql, (error) => {
+            if (error) {
+                responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
+                return;
+            }
+        });
+    });
+    responce(SUCCESS, { message: `${id} was updated` }, res);
+
+};

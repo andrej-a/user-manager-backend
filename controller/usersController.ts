@@ -4,13 +4,17 @@ import { v4 as uuidv4 } from 'uuid';
 import responce from '../responce';
 import connection from '../settings/db';
 import { IUser } from '../models/user';
-import { statusCodes, date } from '../models/constants';
+import { statusCodes, date, SQL_REQUESTS } from '../models/constants';
 
-const { SUCCESS, BAD_REQUEST, NO_CONTENT } = statusCodes;
+const { SUCCESS, CREATED, NO_CONTENT, BAD_REQUEST,  } = statusCodes;
 const { DATE_FORMAT, NOT_LOGIN_INFORMATION } = date;
+const { GET_ALL_USERS, INSERT_USER } = SQL_REQUESTS;
 
-export const getUsers = (req: any, res: { json: (arg0: { status: number; values: any }) => void; end: () => void }) => {
-    connection.query('SELECT * FROM `users`', (error, rows) => {
+export const getAllUsers = (
+    req: any,
+    res: { json: (arg0: { status: number; values: any }) => void; end: () => void }
+) => {
+    connection.query(GET_ALL_USERS, (error, rows) => {
         if (error) {
             responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
             return;
@@ -19,24 +23,20 @@ export const getUsers = (req: any, res: { json: (arg0: { status: number; values:
     });
 };
 
-export const addUser = (
+export const signUp = (
     req: { body: IUser },
     res: { json: (arg0: { status: number; values: any }) => void; end: () => void }
 ) => {
-    const { FirstName, Email, UserStatus } = req.body;
+    const { FirstName, Email, UserStatus, Password } = req.body;
     const Id = uuidv4();
     const RegistrationDate = format(new Date(), DATE_FORMAT);
     const LastLoginDate = NOT_LOGIN_INFORMATION;
-    const sql =
-        'INSERT INTO `users`(`Id`, `FirstName`, `Email`, `RegistrationDate`, `LastLoginDate`, `UserStatus`) VALUES' +
-        `('${Id}', '${FirstName}', '${Email}', '${RegistrationDate}', '${LastLoginDate}', '${UserStatus}')`;
-
-    connection.query(sql, (error) => {
+    connection.query(INSERT_USER, [Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus, Password], (error) => {
         if (error) {
             responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
             return;
         }
-        responce(SUCCESS, { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus }, res);
+        responce(CREATED, { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus }, res);
     });
 };
 
@@ -58,7 +58,7 @@ export const deleteUser = (req: { body: string[] }, res: any) => {
     responce(NO_CONTENT, { message: `Values were deleted!` }, res);
 };
 
-export const loginUser = (req: { body: { Email: string; Password: string } }, res: any) => {
+export const signIn = (req: { body: { Email: string; Password: string } }, res: any) => {
     const { Email, Password } = req.body;
     const sql = `
         UPDATE users
@@ -91,5 +91,4 @@ export const changeUserStatus = (req: { body: { id: string[]; status: string } }
         });
     });
     responce(SUCCESS, { message: `${id} was updated` }, res);
-
 };

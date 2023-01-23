@@ -1,9 +1,10 @@
-const responce = (status: number, values: any, res: { json: (arg0: { status: number; values: any; }) => void; end: () => void; }) => {
+const responce = (status: number, values: any, res: { json: any; end: any; status?: any; }) => {
     const data = {
         'status': status,
         'values': values
     };
 
+    res.status(status);
     res.json(data);
     res.end();
 }

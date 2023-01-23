@@ -1,14 +1,17 @@
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
+import bycrypt from 'bcryptjs';
+const jwt = require('jsonwebtoken');
 
 import responce from '../responce';
 import connection from '../settings/db';
 import { IUser } from '../models/user';
-import { statusCodes, date, SQL_REQUESTS } from '../models/constants';
+import { statusCodes, date, SQL_REQUESTS, CONNECTION_INFORMATION } from '../models/constants';
 
-const { SUCCESS, CREATED, NO_CONTENT, BAD_REQUEST,  } = statusCodes;
+const { SUCCESS, CREATED, NO_CONTENT, BAD_REQUEST, NO_DATA, SERVER_ERROR } = statusCodes;
 const { DATE_FORMAT, NOT_LOGIN_INFORMATION } = date;
-const { GET_ALL_USERS, INSERT_USER } = SQL_REQUESTS;
+const { GET_ALL_USERS, INSERT_USER, GET_USER_BY_EMAIL, UPDATE_LOGIN_DATE } = SQL_REQUESTS;
+const { INCORRECT_PASSWORD } = CONNECTION_INFORMATION;
 
 export const getAllUsers = (
     req: any,
@@ -16,7 +19,7 @@ export const getAllUsers = (
 ) => {
     connection.query(GET_ALL_USERS, (error, rows) => {
         if (error) {
-            responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
+            responce(SERVER_ERROR, { message: `${error.sqlMessage}` }, res);
             return;
         }
         responce(SUCCESS, rows, res);
@@ -31,12 +34,60 @@ export const signUp = (
     const Id = uuidv4();
     const RegistrationDate = format(new Date(), DATE_FORMAT);
     const LastLoginDate = NOT_LOGIN_INFORMATION;
-    connection.query(INSERT_USER, [Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus, Password], (error) => {
+
+    const salt = bycrypt.genSaltSync(15);
+    const hashingPassword = bycrypt.hashSync(Password!, salt);
+
+    connection.query(
+        INSERT_USER,
+        [Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus, hashingPassword],
+        (error) => {
+            if (error) {
+                responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
+                return;
+            }
+            responce(CREATED, { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus }, res);
+        }
+    );
+};
+
+export const signIn = (req: { body: { Email: string; Password: string } }, res: any) => {
+    const { Email, Password } = req.body;
+    connection.query(GET_USER_BY_EMAIL, [Email], (error, rows: IUser[]) => {
         if (error) {
-            responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
+            responce(SERVER_ERROR, { message: `${error.sqlMessage}` }, res);
             return;
         }
-        responce(CREATED, { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus }, res);
+        if (!rows.length) {
+            responce(NO_DATA, { message: `User with ${Email} is not exist` }, res);
+            return;
+        }
+        const correctPassword = bycrypt.compareSync(Password, rows[0].Password!);
+        if (!correctPassword) {
+            responce(BAD_REQUEST, { message: INCORRECT_PASSWORD }, res);
+            return;
+        }
+
+        const loginDate = format(new Date(), DATE_FORMAT);
+        connection.query(UPDATE_LOGIN_DATE, [loginDate, Email], (error, rows) => {
+            if (error) {
+                responce(SERVER_ERROR, { message: `${error.sqlMessage}` }, res);
+                return;
+            }
+            connection.query(GET_USER_BY_EMAIL, [Email], (error, rows: IUser[]) => {
+                if (error) {
+                    responce(SERVER_ERROR, { message: `${error.sqlMessage}` }, res);
+                    return;
+                }
+                const { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus } = rows[0];
+                const userToken = jwt.sign(
+                    {Id, Email},
+                    process.env.jwt,
+                    {expiresIn: 60 * 120}
+                );
+                responce(SUCCESS, {token: `Bearer ${userToken}`, Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus}, res)
+            })
+        });
     });
 };
 
@@ -56,23 +107,6 @@ export const deleteUser = (req: { body: string[] }, res: any) => {
     console.log(deletedValues);
 
     responce(NO_CONTENT, { message: `Values were deleted!` }, res);
-};
-
-export const signIn = (req: { body: { Email: string; Password: string } }, res: any) => {
-    const { Email, Password } = req.body;
-    const sql = `
-        UPDATE users
-        SET LastLoginDate = '${format(new Date(), DATE_FORMAT)}'
-        WHERE Email = '${Email}';
-    `;
-    connection.query(sql, (error) => {
-        if (error) {
-            responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
-            return;
-        }
-
-        responce(SUCCESS, { message: `${Email} was updated` }, res);
-    });
 };
 
 export const changeUserStatus = (req: { body: { id: string[]; status: string } }, res: any) => {

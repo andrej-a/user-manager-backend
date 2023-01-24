@@ -3,6 +3,7 @@ export enum statusCodes {
     CREATED = 201,
     NO_CONTENT = 204,
     BAD_REQUEST = 400,
+    FORBIDDEN = 403,
     NO_DATA = 404,
     SERVER_ERROR = 500,
 }
@@ -20,6 +21,7 @@ export enum SQL_REQUESTS {
     UPDATE_LOGIN_DATE = `UPDATE users SET LastLoginDate = ? WHERE Email = ?`,
     GET_USERS_BY_ID = 'SELECT * FROM users WHERE Id = ?',
     DELETE_USER_BY_ID = 'DELETE FROM users WHERE Id = ?',
+    UPDATE_USER_STATUS = 'UPDATE users SET UserStatus = ? WHERE Id = ?'
 }
 
 export enum CONNECTION_INFORMATION {
@@ -27,4 +29,6 @@ export enum CONNECTION_INFORMATION {
     INCORRECT_PASSWORD = `Incorrect password`,
     USER_IS_NOT_EXIST = 'User with some ID is not exist',
     USERS_SUCCESS_DELETED = 'All users who you choise were deleted',
+    BLOCKED_ACCOUNT = 'Your account was blocked',
+    BLOCKED_STATUS = 'Blocked',
 }

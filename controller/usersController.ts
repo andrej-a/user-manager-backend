@@ -6,10 +6,18 @@ import connection from '../settings/db';
 import { IUser } from '../models/user';
 import { statusCodes, date, SQL_REQUESTS, CONNECTION_INFORMATION } from '../models/constants';
 
-const { SUCCESS, CREATED, NO_CONTENT, BAD_REQUEST, NO_DATA, SERVER_ERROR } = statusCodes;
+const { SUCCESS, CREATED, NO_CONTENT, BAD_REQUEST, NO_DATA, SERVER_ERROR, FORBIDDEN } = statusCodes;
 const { DATE_FORMAT, NOT_LOGIN_INFORMATION } = date;
-const { GET_ALL_USERS, INSERT_USER, GET_USER_BY_EMAIL, UPDATE_LOGIN_DATE, GET_USERS_BY_ID, DELETE_USER_BY_ID } = SQL_REQUESTS;
-const { INCORRECT_PASSWORD, USERS_SUCCESS_DELETED } = CONNECTION_INFORMATION;
+const {
+    GET_ALL_USERS,
+    INSERT_USER,
+    GET_USER_BY_EMAIL,
+    UPDATE_LOGIN_DATE,
+    GET_USERS_BY_ID,
+    DELETE_USER_BY_ID,
+    UPDATE_USER_STATUS,
+} = SQL_REQUESTS;
+const { INCORRECT_PASSWORD, USERS_SUCCESS_DELETED, BLOCKED_ACCOUNT, BLOCKED_STATUS } = CONNECTION_INFORMATION;
 
 export const getAllUsers = (
     req: any,
@@ -78,6 +86,10 @@ export const signIn = (req: { body: { Email: string; Password: string } }, res: 
                     return;
                 }
                 const { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus } = rows[0];
+                if (UserStatus === BLOCKED_STATUS) {
+                    responce(FORBIDDEN, { message: BLOCKED_ACCOUNT }, res);
+                    return;
+                }
                 const jwt = require('jsonwebtoken');
                 const userToken = jwt.sign({ Id, Email }, process.env.jwt, { expiresIn: 60 * 120 });
                 responce(
@@ -116,7 +128,7 @@ export const deleteUser = (req: { body: string[] }, res: any) => {
                             });
                         });
 
-                        responce(NO_CONTENT, {message: USERS_SUCCESS_DELETED}, res);
+                        responce(NO_CONTENT, { message: USERS_SUCCESS_DELETED }, res);
                     }
                 }
             }
@@ -126,18 +138,33 @@ export const deleteUser = (req: { body: string[] }, res: any) => {
 
 export const changeUserStatus = (req: { body: { id: string[]; status: string } }, res: any) => {
     const { id, status } = req.body;
-    id.forEach((item) => {
-        const sql = `
-        UPDATE users
-        SET UserStatus = '${status}'
-        WHERE Id = '${item}';
-        `;
-        connection.query(sql, (error) => {
+    const users: IUser[] = [];
+    id.forEach((value) => {
+        connection.query(GET_USERS_BY_ID, [value], (error, rows) => {
             if (error) {
                 responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
                 return;
             }
+            users.push(rows[0]);
+
+            if (users.length === id.length) {
+                for (let i = 0; i < users.length; i += 1) {
+                    if (!users[i]) {
+                        responce(NO_DATA, { message: `User with ID ${id[i]} is not exist` }, res);
+                        return;
+                    } else if (i === users.length - 1) {
+                        id.map((item) => {
+                            connection.query(UPDATE_USER_STATUS, [status, item], (error) => {
+                                if (error) {
+                                    responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
+                                    return;
+                                }
+                            });
+                        });
+                        responce(SUCCESS, { message: "Status was updated" }, res);
+                    }
+                }
+            }
         });
     });
-    responce(SUCCESS, { message: `${id} was updated` }, res);
 };

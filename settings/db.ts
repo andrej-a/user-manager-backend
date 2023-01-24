@@ -9,8 +9,7 @@ const connection: mysql.Connection = mysql.createConnection({
     host: process.env.host,
     user: process.env.user,
     password: process.env.password,
-    database: process.env.database,
-    socketPath: '/Applications/MAMP/tmp/mysql/mysql.sock'
+    database: process.env.database
 });
 
 connection.connect(async (err) => {

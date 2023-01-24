@@ -8,8 +8,8 @@ import { statusCodes, date, SQL_REQUESTS, CONNECTION_INFORMATION } from '../mode
 
 const { SUCCESS, CREATED, NO_CONTENT, BAD_REQUEST, NO_DATA, SERVER_ERROR } = statusCodes;
 const { DATE_FORMAT, NOT_LOGIN_INFORMATION } = date;
-const { GET_ALL_USERS, INSERT_USER, GET_USER_BY_EMAIL, UPDATE_LOGIN_DATE } = SQL_REQUESTS;
-const { INCORRECT_PASSWORD } = CONNECTION_INFORMATION;
+const { GET_ALL_USERS, INSERT_USER, GET_USER_BY_EMAIL, UPDATE_LOGIN_DATE, GET_USERS_BY_ID, DELETE_USER_BY_ID } = SQL_REQUESTS;
+const { INCORRECT_PASSWORD, USERS_SUCCESS_DELETED } = CONNECTION_INFORMATION;
 
 export const getAllUsers = (
     req: any,
@@ -79,33 +79,49 @@ export const signIn = (req: { body: { Email: string; Password: string } }, res: 
                 }
                 const { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus } = rows[0];
                 const jwt = require('jsonwebtoken');
-                const userToken = jwt.sign(
-                    {Id, Email},
-                    process.env.jwt,
-                    {expiresIn: 60 * 120}
+                const userToken = jwt.sign({ Id, Email }, process.env.jwt, { expiresIn: 60 * 120 });
+                responce(
+                    SUCCESS,
+                    { token: `Bearer ${userToken}`, Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus },
+                    res
                 );
-                responce(SUCCESS, {token: `Bearer ${userToken}`, Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus}, res)
-            })
+            });
         });
     });
 };
 
 export const deleteUser = (req: { body: string[] }, res: any) => {
     const id = req.body;
-    const deletedValues: string[] = [];
-    id.forEach((item) => {
-        const sql = `DELETE FROM users WHERE Id='${item}';`;
-        connection.query(sql, (error) => {
+    const users: IUser[] = [];
+    id.forEach((value) => {
+        connection.query(GET_USERS_BY_ID, [value], (error, rows) => {
             if (error) {
                 responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
                 return;
             }
-            deletedValues.push(item);
+            users.push(rows[0]);
+
+            if (users.length === id.length) {
+                for (let i = 0; i < users.length; i += 1) {
+                    if (!users[i]) {
+                        responce(NO_DATA, { message: `User with ID ${id[i]} is not exist` }, res);
+                        return;
+                    } else if (i === users.length - 1) {
+                        id.map((item) => {
+                            connection.query(DELETE_USER_BY_ID, [item], (error) => {
+                                if (error) {
+                                    responce(BAD_REQUEST, { message: `${error.sqlMessage}` }, res);
+                                    return;
+                                }
+                            });
+                        });
+
+                        responce(NO_CONTENT, {message: USERS_SUCCESS_DELETED}, res);
+                    }
+                }
+            }
         });
     });
-    console.log(deletedValues);
-
-    responce(NO_CONTENT, { message: `Values were deleted!` }, res);
 };
 
 export const changeUserStatus = (req: { body: { id: string[]; status: string } }, res: any) => {

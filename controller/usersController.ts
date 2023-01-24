@@ -1,8 +1,6 @@
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import bycrypt from 'bcryptjs';
-const jwt = require('jsonwebtoken');
-
 import responce from '../responce';
 import connection from '../settings/db';
 import { IUser } from '../models/user';
@@ -35,7 +33,7 @@ export const signUp = (
     const RegistrationDate = format(new Date(), DATE_FORMAT);
     const LastLoginDate = NOT_LOGIN_INFORMATION;
 
-    const salt = bycrypt.genSaltSync(15);
+    const salt = bycrypt.genSaltSync(Number(process.env.bycrypt_rounds));
     const hashingPassword = bycrypt.hashSync(Password!, salt);
 
     connection.query(
@@ -80,6 +78,7 @@ export const signIn = (req: { body: { Email: string; Password: string } }, res: 
                     return;
                 }
                 const { Id, FirstName, Email, RegistrationDate, LastLoginDate, UserStatus } = rows[0];
+                const jwt = require('jsonwebtoken');
                 const userToken = jwt.sign(
                     {Id, Email},
                     process.env.jwt,
